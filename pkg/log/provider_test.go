@@ -7,25 +7,28 @@ SPDX-License-Identifier: Apache-2.0
 package log
 
 import (
-	"sync"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/trustbloc/edge-core/pkg/internal/logging/modlog"
 )
 
 // TestDefaultLogger tests custom logging feature when custom logging provider is supplied through 'Initialize()' call
 func TestCustomLogger(t *testing.T) {
-	defer func() { loggerProviderOnce = sync.Once{} }()
+	defer func() {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		loggerProviderInstance = nil
+	}()
 
 	const module = "sample-module"
 
 	// initialize logger provider with custom logger provider
 	Initialize(newCustomProvider(module))
 
-	// get logger instance
-	logger := New(module)
-
-	modlog.VerifyCustomLogger(t, logger, module)
+	require.NotPanics(t, func() { New(module).Infof("Test") })
 }
 
 // newCustomProvider return new sample logging provider to demonstrate custom logging provider

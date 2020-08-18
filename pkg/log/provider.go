@@ -7,6 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package log
 
 import (
+	"fmt"
 	"sync"
 
 	"github.com/trustbloc/edge-core/pkg/internal/logging/modlog"
@@ -16,27 +17,41 @@ import (
 //nolint:gochecknoglobals
 var (
 	loggerProviderInstance LoggerProvider
-	loggerProviderOnce     sync.Once
+	mutex                  sync.RWMutex
 )
 
 // Initialize sets new custom logging provider which takes over logging operations.
 // It is required to call this function before making any loggings for using custom loggers.
 func Initialize(l LoggerProvider) {
-	loggerProviderOnce.Do(func() {
-		loggerProviderInstance = &modlogProvider{l}
-		logger := loggerProviderInstance.GetLogger(loggerModule)
-		logger.Debugf("Logger provider initialized")
-	})
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	fmt.Printf("Initializing custom logger\n")
+
+	loggerProviderInstance = l
+	logger := loggerProviderInstance.GetLogger(loggerModule)
+	logger.Debugf("Logger provider initialized")
 }
 
 func loggerProvider() LoggerProvider {
-	loggerProviderOnce.Do(func() {
-		// A custom logger must be initialized prior to the first log output
-		// Otherwise the built-in logger is used
-		loggerProviderInstance = &modlogProvider{}
-		logger := loggerProviderInstance.GetLogger(loggerModule)
-		logger.Debugf(loggerNotInitializedMsg)
-	})
+	mutex.RLock()
+	provider := loggerProviderInstance
+	mutex.RUnlock()
+
+	if provider != nil {
+		return provider
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	fmt.Printf("Initializing default logger\n")
+
+	// A custom logger must be initialized prior to the first log output
+	// Otherwise the built-in logger is used
+	loggerProviderInstance = &modlogProvider{}
+	logger := loggerProviderInstance.GetLogger(loggerModule)
+	logger.Debugf(loggerNotInitializedMsg)
 
 	return loggerProviderInstance
 }
@@ -44,17 +59,9 @@ func loggerProvider() LoggerProvider {
 // modlogProvider is a module based logger provider wrapped on given custom logging provider
 // if custom logger provider is not provided, then default logger will be used
 type modlogProvider struct {
-	custom LoggerProvider
 }
 
 // GetLogger returns moduled logger implementation.
 func (p *modlogProvider) GetLogger(module string) Logger {
-	var logger Logger
-	if p.custom != nil {
-		logger = p.custom.GetLogger(module)
-	} else {
-		logger = modlog.NewDefLog(module)
-	}
-
-	return modlog.NewModLog(logger, module)
+	return modlog.NewModLog(modlog.NewDefLog(module), module)
 }

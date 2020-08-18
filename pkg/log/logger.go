@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 package log
 
 import (
-	"sync"
+	"fmt"
 
 	"github.com/trustbloc/edge-core/pkg/internal/logging/metadata"
 )
@@ -19,60 +19,13 @@ const (
 	loggerModule            = "edge-core/pkg/log"
 )
 
-// Log is an implementation of Logger interface.
-// It encapsulates default or custom logger to provide module and level based logging.
-type Log struct {
-	instance Logger
-	module   string
-	once     sync.Once
-}
-
 // New creates and returns a Logger implementation based on given module name.
 // note: the underlying logger instance is lazy initialized on first use.
 // To use your own logger implementation provide logger provider in 'Initialize()' before logging any line.
 // If 'Initialize()' is not called before logging any line then default logging implementation will be used.
-func New(module string) *Log {
-	return &Log{module: module}
-}
-
-// Fatalf calls Fatalf function of underlying logger
-// should possibly cause system shutdown based on implementation
-func (l *Log) Fatalf(msg string, args ...interface{}) {
-	l.logger().Fatalf(msg, args...)
-}
-
-// Panicf calls Panic function of underlying logger
-// should possibly cause panic based on implementation
-func (l *Log) Panicf(msg string, args ...interface{}) {
-	l.logger().Panicf(msg, args...)
-}
-
-// Debugf calls Debugf function of underlying logger
-func (l *Log) Debugf(msg string, args ...interface{}) {
-	l.logger().Debugf(msg, args...)
-}
-
-// Infof calls Infof function of underlying logger
-func (l *Log) Infof(msg string, args ...interface{}) {
-	l.logger().Infof(msg, args...)
-}
-
-// Warnf calls Warnf function of underlying logger
-func (l *Log) Warnf(msg string, args ...interface{}) {
-	l.logger().Warnf(msg, args...)
-}
-
-// Errorf calls Errorf function of underlying logger
-func (l *Log) Errorf(msg string, args ...interface{}) {
-	l.logger().Errorf(msg, args...)
-}
-
-func (l *Log) logger() Logger {
-	l.once.Do(func() {
-		l.instance = loggerProvider().GetLogger(l.module)
-	})
-
-	return l.instance
+func New(module string) Logger {
+	fmt.Printf("Returning logger for [%s]\n", module)
+	return loggerProvider().GetLogger(module)
 }
 
 // SetLevel - setting log level for given module

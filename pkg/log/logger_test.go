@@ -7,7 +7,6 @@ SPDX-License-Identifier: Apache-2.0
 package log
 
 import (
-	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -18,7 +17,12 @@ import (
 
 // TestDefaultLogger tests default logging feature when no custom logging provider is supplied via 'Initialize()' call
 func TestDefaultLogger(t *testing.T) {
-	defer func() { loggerProviderOnce = sync.Once{} }()
+	defer func() {
+		mutex.Lock()
+		defer mutex.Unlock()
+
+		loggerProviderInstance = nil
+	}()
 
 	const module = "sample-module"
 
@@ -27,7 +31,7 @@ func TestDefaultLogger(t *testing.T) {
 
 	// force logger instance loading to switch output of logger to buffer for testing
 	logger.Infof("sample output")
-	modlog.SwitchLogOutputToBuffer(logger.instance)
+	modlog.SwitchLogOutputToBuffer(logger)
 
 	// verify default logger
 	modlog.VerifyDefaultLogging(t, logger, module, metadata.SetLevel)
