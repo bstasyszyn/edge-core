@@ -16,27 +16,37 @@ import (
 //nolint:gochecknoglobals
 var (
 	loggerProviderInstance LoggerProvider
-	loggerProviderOnce     sync.Once
+	mutex                  sync.RWMutex
 )
 
 // Initialize sets new custom logging provider which takes over logging operations.
 // It is required to call this function before making any loggings for using custom loggers.
 func Initialize(l LoggerProvider) {
-	loggerProviderOnce.Do(func() {
-		loggerProviderInstance = &modlogProvider{l}
-		logger := loggerProviderInstance.GetLogger(loggerModule)
-		logger.Debugf("Logger provider initialized")
-	})
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	loggerProviderInstance = l
+	logger := loggerProviderInstance.GetLogger(loggerModule)
+	logger.Debugf("Logger provider initialized")
 }
 
 func loggerProvider() LoggerProvider {
-	loggerProviderOnce.Do(func() {
-		// A custom logger must be initialized prior to the first log output
-		// Otherwise the built-in logger is used
-		loggerProviderInstance = &modlogProvider{}
-		logger := loggerProviderInstance.GetLogger(loggerModule)
-		logger.Debugf(loggerNotInitializedMsg)
-	})
+	mutex.RLock()
+	provider := loggerProviderInstance
+	mutex.RUnlock()
+
+	if provider != nil {
+		return provider
+	}
+
+	mutex.Lock()
+	defer mutex.Unlock()
+
+	// A custom logger must be initialized prior to the first log output
+	// Otherwise the built-in logger is used
+	loggerProviderInstance = &modlogProvider{}
+	logger := loggerProviderInstance.GetLogger(loggerModule)
+	logger.Debugf(loggerNotInitializedMsg)
 
 	return loggerProviderInstance
 }
